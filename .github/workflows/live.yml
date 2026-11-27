@@ -32,7 +32,7 @@ jobs:
       # Cache both the Playwright Node package and its Chromium download.
       # Cache key changes when the runner OS or Playwright version changes.
       - name: Restore browser cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         id: browser-cache
         with:
           path: |
@@ -71,6 +71,17 @@ jobs:
 
           # Ensure Chromium's shared-library dependencies are present.
           "$PLAYWRIGHT" install-deps chromium
+
+      # Save immediately after browser setup so cancelling the long stream
+      # does not prevent the cache from being persisted.
+      - name: Save browser cache
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.local/pids-live
+          key: ${{ steps.browser-cache.outputs.cache-primary-key }}
 
       - name: Start browser capture and stream
         run: bash ./scripts/stream.sh
