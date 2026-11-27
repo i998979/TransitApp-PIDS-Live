@@ -1,0 +1,49 @@
+name: PIDS YouTube Live
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pids-youtube-live
+  cancel-in-progress: true
+
+jobs:
+  stream:
+    # Public repositories can use standard GitHub-hosted runners without
+    # consuming the private-repository included-minutes allowance.
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    env:
+      TARGET_URL: "https://transitapp-6c3.pages.dev/pids"
+      YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
+      VIDEO_WIDTH: "1920"
+      VIDEO_HEIGHT: "1080"
+      FPS: "30"
+      SESSION_MINUTES: "345"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install browser and streaming dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ffmpeg xvfb chromium-browser
+          chromium-browser --version
+          ffmpeg -version | head -n 1
+
+      - name: Start browser capture and stream
+        run: bash ./scripts/stream.sh
+
+      - name: Show diagnostics
+        if: always()
+        run: |
+          echo "Workflow finished at $(date -u)"
+          pgrep -a chromium || true
+          pgrep -a ffmpeg || true
