@@ -2,7 +2,7 @@
 
 Experimental GitHub Actions -> Chromium -> FFmpeg -> YouTube RTMPS pipeline.
 
-Target: https://transitapp-6c3.pages.dev/pids
+Target: https://transitapp-6c6.pages.dev/pids
 
 ## Important limitations
 
