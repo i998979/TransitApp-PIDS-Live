@@ -29,8 +29,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Cache both the Playwright Node package and its Chromium download.
-      # Cache key changes when the runner OS or Playwright version changes.
+      # Restore the newest cache for this OS and Playwright version.
+      # Each run saves under a unique key to avoid concurrent key reservations.
       - name: Restore browser cache
         uses: actions/cache/restore@v4
         id: browser-cache
@@ -39,7 +39,9 @@ jobs:
             ~/.cache/ms-playwright
             ~/.local/pids-live
             ~/.local/share/fonts
-          key: pids-live-ubuntu-24-playwright-${{ env.PLAYWRIGHT_VERSION }}-chromium-v1
+          key: pids-live-ubuntu-24-playwright-${{ env.PLAYWRIGHT_VERSION }}-chromium-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            pids-live-ubuntu-24-playwright-${{ env.PLAYWRIGHT_VERSION }}-chromium-
 
       - name: Install Playwright and Chromium (cache miss only)
         shell: bash
@@ -86,7 +88,7 @@ jobs:
 
           # Only run Playwright's APT dependency installer when Chromium
           # actually has unresolved shared-library dependencies.
-          if ldd "$CHROME" 2>/dev/null | grep -q "not found"; then
+          if ldd "$CHROME_PATH" 2>/dev/null | grep -q "not found"; then
             echo "Missing Chromium shared libraries; installing dependencies."
             "$PLAYWRIGHT" install-deps chromium
           else
@@ -102,7 +104,8 @@ jobs:
           path: |
             ~/.cache/ms-playwright
             ~/.local/pids-live
-          key: ${{ steps.browser-cache.outputs.cache-primary-key }}
+            ~/.local/share/fonts
+          key: pids-live-ubuntu-24-playwright-${{ env.PLAYWRIGHT_VERSION }}-chromium-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Start browser capture and stream
         run: bash ./scripts/stream.sh
