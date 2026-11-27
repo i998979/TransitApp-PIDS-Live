@@ -25,6 +25,16 @@ if [[ ! -x "$CHROME" ]]; then
   exit 1
 fi
 
+# Create a virtual PulseAudio output so Chromium audio can be captured by FFmpeg.
+export XDG_RUNTIME_DIR="${RUNNER_TEMP:-/tmp}/pids-audio-runtime"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
+pulseaudio --kill 2>/dev/null || true
+pulseaudio --start --exit-idle-time=-1 --log-target=stderr
+pactl load-module module-null-sink sink_name=pids_sink sink_properties=device.description=PIDS_Audio
+pactl set-default-sink pids_sink
+AUDIO_SOURCE="pids_sink.monitor"
+
 export DISPLAY=:99
 Xvfb "$DISPLAY" -screen 0 "${VIDEO_WIDTH}x${VIDEO_HEIGHT}x24" -ac +extension RANDR &
 XVFB_PID=$!
@@ -34,6 +44,7 @@ cleanup() {
   [[ -n "${FFMPEG_PID:-}" ]] && kill "$FFMPEG_PID" 2>/dev/null
   [[ -n "${BROWSER_PID:-}" ]] && kill "$BROWSER_PID" 2>/dev/null
   kill "$XVFB_PID" 2>/dev/null
+  pulseaudio --kill 2>/dev/null
   wait 2>/dev/null
 }
 trap cleanup EXIT INT TERM
