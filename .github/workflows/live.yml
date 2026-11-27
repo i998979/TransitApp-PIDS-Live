@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 355
     env:
-      TARGET_URL: "https://transitapp-6c3.pages.dev/pids"
+      TARGET_URL: "https://transitapp-6c6.pages.dev/pids"
       YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
       VIDEO_WIDTH: "1920"
       VIDEO_HEIGHT: "1080"
