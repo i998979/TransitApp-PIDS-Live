@@ -14,29 +14,61 @@ concurrency:
 
 jobs:
   stream:
-    # Public repositories can use standard GitHub-hosted runners without
-    # consuming the private-repository included-minutes allowance.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 355
     env:
-      TARGET_URL: "https://transitapp-6c6.pages.dev/pids"
+      TARGET_URL: "https://transitapp-6c3.pages.dev/pids"
       YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
       VIDEO_WIDTH: "1920"
       VIDEO_HEIGHT: "1080"
       FPS: "30"
       SESSION_MINUTES: "345"
+      PLAYWRIGHT_VERSION: "1.56.1"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install browser and streaming dependencies
+      # Cache both the Playwright Node package and its Chromium download.
+      # Cache key changes when the runner OS or Playwright version changes.
+      - name: Restore browser cache
+        uses: actions/cache@v4
+        id: browser-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.local/pids-live
+          key: pids-live-ubuntu-24-playwright-${{ env.PLAYWRIGHT_VERSION }}-chromium-v1
+
+      - name: Install Playwright and Chromium (cache miss only)
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            ffmpeg xvfb chromium-browser
-          chromium-browser --version
-          ffmpeg -version | head -n 1
+          set -euo pipefail
+          if [[ ! -x "$HOME/.local/pids-live/node_modules/.bin/playwright" ]]; then
+            npm install --prefix "$HOME/.local/pids-live" "playwright@${PLAYWRIGHT_VERSION}"
+          fi
+
+          PLAYWRIGHT="$HOME/.local/pids-live/node_modules/.bin/playwright"
+          CHROME_PATH="$(node -e "console.log(require('$HOME/.local/pids-live/node_modules/playwright').chromium.executablePath())")"
+
+          if [[ ! -x "$CHROME_PATH" ]]; then
+            "$PLAYWRIGHT" install chromium
+          else
+            echo "Using cached Chromium: $CHROME_PATH"
+          fi
+
+          # Install only missing system dependencies; Ubuntu runner images
+          # normally already include FFmpeg and Xvfb.
+          MISSING=()
+          command -v ffmpeg >/dev/null 2>&1 || MISSING+=(ffmpeg)
+          command -v Xvfb >/dev/null 2>&1 || MISSING+=(xvfb)
+          if (( ${#MISSING[@]} )); then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends "${MISSING[@]}"
+          fi
+
+          # Ensure Chromium's shared-library dependencies are present.
+          "$PLAYWRIGHT" install-deps chromium
 
       - name: Start browser capture and stream
         run: bash ./scripts/stream.sh
@@ -45,5 +77,5 @@ jobs:
         if: always()
         run: |
           echo "Workflow finished at $(date -u)"
-          pgrep -a chromium || true
+          pgrep -a chrome || true
           pgrep -a ffmpeg || true
