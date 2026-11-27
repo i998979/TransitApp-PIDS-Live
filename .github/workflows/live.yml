@@ -15,14 +15,14 @@ concurrency:
 jobs:
   stream:
     runs-on: ubuntu-24.04
-    timeout-minutes: 355
+    timeout-minutes: 360
     env:
       TARGET_URL: "https://transitapp-6c6.pages.dev/pids"
       YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
       VIDEO_WIDTH: "1920"
       VIDEO_HEIGHT: "1080"
       FPS: "30"
-      SESSION_MINUTES: "345"
+      SESSION_MINUTES: "355"
       PLAYWRIGHT_VERSION: "1.56.1"
 
     steps:
@@ -69,8 +69,14 @@ jobs:
             sudo apt-get install -y --no-install-recommends "${MISSING[@]}"
           fi
 
-          # Ensure Chromium's shared-library dependencies are present.
-          "$PLAYWRIGHT" install-deps chromium
+          # Only run Playwright's APT dependency installer when Chromium
+          # actually has unresolved shared-library dependencies.
+          if ldd "$CHROME" 2>/dev/null | grep -q "not found"; then
+            echo "Missing Chromium shared libraries; installing dependencies."
+            "$PLAYWRIGHT" install-deps chromium
+          else
+            echo "Chromium shared-library dependencies are already present."
+          fi
 
       # Save immediately after browser setup so cancelling the long stream
       # does not prevent the cache from being persisted.
