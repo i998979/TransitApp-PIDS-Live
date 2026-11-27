@@ -82,8 +82,8 @@ ffmpeg \
   -framerate "$FPS" \
   -video_size "${VIDEO_WIDTH}x${VIDEO_HEIGHT}" \
   -i "${DISPLAY}.0" \
-  -f lavfi \
-  -i "anullsrc=channel_layout=stereo:sample_rate=44100" \
+  -f pulse \
+  -i "$AUDIO_SOURCE" \
   -t "$DURATION_SECONDS" \
   -map 0:v:0 \
   -map 1:a:0 \
