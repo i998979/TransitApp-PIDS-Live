@@ -62,6 +62,8 @@ jobs:
           MISSING=()
           command -v ffmpeg >/dev/null 2>&1 || MISSING+=(ffmpeg)
           command -v Xvfb >/dev/null 2>&1 || MISSING+=(xvfb)
+          command -v pulseaudio >/dev/null 2>&1 || MISSING+=(pulseaudio)
+          command -v pactl >/dev/null 2>&1 || MISSING+=(pulseaudio-utils)
           if (( ${#MISSING[@]} )); then
             sudo apt-get update
             sudo apt-get install -y --no-install-recommends "${MISSING[@]}"
