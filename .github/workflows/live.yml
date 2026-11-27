@@ -38,6 +38,7 @@ jobs:
           path: |
             ~/.cache/ms-playwright
             ~/.local/pids-live
+            ~/.local/share/fonts
           key: pids-live-ubuntu-24-playwright-${{ env.PLAYWRIGHT_VERSION }}-chromium-v1
 
       - name: Install Playwright and Chromium (cache miss only)
@@ -68,6 +69,20 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y --no-install-recommends "${MISSING[@]}"
           fi
+
+          # Ensure Chromium has a Traditional Chinese font available.
+          mkdir -p "$HOME/.local/share/fonts"
+          if ! fc-list :lang=zh-tw family 2>/dev/null | grep -qi "Noto Sans CJK"; then
+            echo "Installing Noto CJK fonts for Chinese text."
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+            mkdir -p "$HOME/.local/share/fonts/noto-cjk"
+            cp -a /usr/share/fonts/opentype/noto/. "$HOME/.local/share/fonts/noto-cjk/"
+          else
+            echo "Traditional Chinese fonts are available."
+          fi
+          fc-cache -f "$HOME/.local/share/fonts"
+          fc-list :lang=zh-tw family | head -10
 
           # Only run Playwright's APT dependency installer when Chromium
           # actually has unresolved shared-library dependencies.
