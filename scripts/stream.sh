@@ -13,6 +13,18 @@ if [[ ! "$YOUTUBE_STREAM_KEY" =~ ^[A-Za-z0-9_-]+$ ]]; then
   exit 1
 fi
 
+PLAYWRIGHT_DIR="$HOME/.local/pids-live/node_modules/playwright"
+if [[ ! -d "$PLAYWRIGHT_DIR" ]]; then
+  echo "Cached Playwright package is missing. Run the workflow installation step first."
+  exit 1
+fi
+
+CHROME="$(node -e "console.log(require(process.env.HOME + '/.local/pids-live/node_modules/playwright').chromium.executablePath())")"
+if [[ ! -x "$CHROME" ]]; then
+  echo "Cached Chromium executable is missing: $CHROME"
+  exit 1
+fi
+
 export DISPLAY=:99
 Xvfb "$DISPLAY" -screen 0 "${VIDEO_WIDTH}x${VIDEO_HEIGHT}x24" -ac +extension RANDR &
 XVFB_PID=$!
@@ -27,12 +39,6 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 sleep 3
-
-CHROME="$(command -v chromium-browser || command -v chromium || true)"
-if [[ -z "$CHROME" ]]; then
-  echo "Chromium executable not found."
-  exit 1
-fi
 
 "$CHROME" \
   --no-sandbox \
@@ -86,8 +92,6 @@ ffmpeg \
   "$RTMP_URL" &
 FFMPEG_PID=$!
 
-# Fail the job if FFmpeg exits unexpectedly; otherwise stop cleanly at the
-# configured session limit so the next scheduled job can take over.
 for ((i=0; i<DURATION_SECONDS; i+=10)); do
   if ! kill -0 "$FFMPEG_PID" 2>/dev/null; then
     wait "$FFMPEG_PID"
