@@ -177,10 +177,6 @@ else
 fi
 
 STARTED_AT=$SECONDS
-if [[ "$HANDOVER_ROLE" == "PREPARE" ]]; then
-  PREPARE_AT=$((SECONDS + PREPARE_AT))
-fi
-
 while (( SECONDS - STARTED_AT < PREPARE_AT )); do
   if ! kill -0 "$FFMPEG_PID" 2>/dev/null; then
     wait "$FFMPEG_PID"
