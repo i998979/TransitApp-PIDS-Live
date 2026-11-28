@@ -1,0 +1,98 @@
+name: PIDS YouTube Live Prepare
+
+on:
+  workflow_dispatch:
+    inputs:
+      session_id:
+        description: "Handover session identifier"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      TARGET_URL: "https://transitapp-6c6.pages.dev/pids"
+      YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
+      GH_HANDOVER_TOKEN: ${{ secrets.GH_HANDOVER_TOKEN }}
+      VIDEO_WIDTH: "1920"
+      VIDEO_HEIGHT: "1080"
+      FPS: "30"
+      SESSION_MINUTES: "15"
+      HANDOVER_LEAD_MINUTES: "5"
+      HANDOVER_ROLE: "PREPARE"
+      HANDOVER_SESSION_ID: ${{ inputs.session_id }}
+      PLAYWRIGHT_VERSION: "1.56.1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore browser cache
+        uses: actions/cache/restore@v4
+        id: browser-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.local/pids-live
+            ~/.local/share/fonts
+          key: pids-live-ubuntu-24-playwright-${{ env.PLAYWRIGHT_VERSION }}-chromium-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            pids-live-ubuntu-24-playwright-${{ env.PLAYWRIGHT_VERSION }}-chromium-
+
+      - name: Install Playwright and Chromium (cache miss only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -x "$HOME/.local/pids-live/node_modules/.bin/playwright" ]]; then
+            npm install --prefix "$HOME/.local/pids-live" "playwright@${PLAYWRIGHT_VERSION}"
+          fi
+          PLAYWRIGHT="$HOME/.local/pids-live/node_modules/.bin/playwright"
+          CHROME_PATH="$(node -e "console.log(require('$HOME/.local/pids-live/node_modules/playwright').chromium.executablePath())")"
+          if [[ ! -x "$CHROME_PATH" ]]; then
+            "$PLAYWRIGHT" install chromium
+          fi
+          MISSING=()
+          command -v ffmpeg >/dev/null 2>&1 || MISSING+=(ffmpeg)
+          command -v Xvfb >/dev/null 2>&1 || MISSING+=(xvfb)
+          command -v pulseaudio >/dev/null 2>&1 || MISSING+=(pulseaudio)
+          command -v pactl >/dev/null 2>&1 || MISSING+=(pulseaudio-utils)
+          if (( ${#MISSING[@]} )); then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends "${MISSING[@]}"
+          fi
+          mkdir -p "$HOME/.local/share/fonts"
+          if ! fc-list :lang=zh-tw family 2>/dev/null | grep -qi "Noto Sans CJK"; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+            mkdir -p "$HOME/.local/share/fonts/noto-cjk"
+            cp -a /usr/share/fonts/opentype/noto/. "$HOME/.local/share/fonts/noto-cjk/"
+          fi
+          fc-cache -f "$HOME/.local/share/fonts"
+          if ldd "$CHROME_PATH" 2>/dev/null | grep -q "not found"; then
+            "$PLAYWRIGHT" install-deps chromium
+          fi
+
+      - name: Save browser cache
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.local/pids-live
+            ~/.local/share/fonts
+          key: pids-live-ubuntu-24-playwright-${{ env.PLAYWRIGHT_VERSION }}-chromium-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Prepare and take over stream
+        run: bash ./scripts/stream.sh
+
+      - name: Diagnostics
+        if: always()
+        run: |
+          echo "Workflow finished at $(date -u)"
+          pgrep -a chrome || true
+          pgrep -a ffmpeg || true
