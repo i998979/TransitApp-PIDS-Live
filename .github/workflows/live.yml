@@ -16,14 +16,14 @@ concurrency:
 jobs:
   stream:
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
+    timeout-minutes: 30
     env:
       TARGET_URL: "https://transitapp-6c6.pages.dev/pids"
       YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
       VIDEO_WIDTH: "1920"
       VIDEO_HEIGHT: "1080"
       FPS: "30"
-      SESSION_MINUTES: "355"
+      SESSION_MINUTES: "15"
       PLAYWRIGHT_VERSION: "1.56.1"
 
     steps:
