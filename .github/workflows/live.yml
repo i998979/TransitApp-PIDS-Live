@@ -16,7 +16,7 @@ concurrency:
 jobs:
   stream:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 360
     env:
       TARGET_URL: "https://transitapp-6c6.pages.dev/pids"
       YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
